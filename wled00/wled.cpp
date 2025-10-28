@@ -1,6 +1,7 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#include "config.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
   #include <ArduinoOTA.h>
@@ -444,7 +445,7 @@ void WLED::setup()
   escapedMac.toLowerCase();
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
-  multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
+  multiWiFi.push_back(WiFiConfig(STATIC_SSID,STATIC_PASS)); // initialise vector with default WiFi
 
   if(!verifyConfig()) {
     if(!restoreConfig()) {
