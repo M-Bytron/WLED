@@ -348,6 +348,7 @@ void WLED::setup()
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
   #endif
   Serial.begin(115200);
+  Serial.setDebugOutput(true);
   #if !ARDUINO_USB_CDC_ON_BOOT
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
@@ -526,6 +527,8 @@ void WLED::setup()
   initDMXOutput();
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
+  DEBUG_PRINTLN(F("DMX Input: ENABLED"));
+  Serial.print('DMX Input: ENABLED');
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);
 #endif
 
