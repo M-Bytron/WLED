@@ -1,6 +1,6 @@
 #include "wled.h"
 #include "wled_ethernet.h"
-
+#include "config.h"
 /*
  * Serializes and parses the cfg.json and wsec.json settings files, stored in internal FS.
  * The structure of the JSON is not to be considered an official API and may change without notice.
@@ -319,7 +319,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       unsigned start = 0;
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
-      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
+      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, LED_REVERSED, 0, RGBW_MODE_MANUAL_ONLY, 0);  //HARDCODED LED REVERSE STATE
       doInitBusses = true;  // finalization done in beginStrip()
     }
   }
