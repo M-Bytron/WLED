@@ -481,11 +481,12 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL uint16_t DMXStart _INIT(10);        // start address of the first fixture
   WLED_GLOBAL uint16_t DMXStartLED _INIT(0);      // LED from which DMX fixtures start
 #endif
+#include "config.h"
 #ifdef WLED_ENABLE_DMX_INPUT
-  WLED_GLOBAL int dmxInputTransmitPin _INIT(0);
-  WLED_GLOBAL int dmxInputReceivePin _INIT(0);
-  WLED_GLOBAL int dmxInputEnablePin _INIT(0);
-  WLED_GLOBAL int dmxInputPort _INIT(2);
+  WLED_GLOBAL int dmxInputTransmitPin _INIT(DMX_INPUT_TX_PIN);
+  WLED_GLOBAL int dmxInputReceivePin _INIT(DMX_INPUT_RX_PIN);
+  WLED_GLOBAL int dmxInputEnablePin _INIT(DMX_INPUT_EN_PIN);
+  WLED_GLOBAL int dmxInputPort _INIT(DMX_INPUT_PORT);
   WLED_GLOBAL DMXInput dmxInput;
 #endif
 
