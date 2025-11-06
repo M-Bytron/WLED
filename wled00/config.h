@@ -35,5 +35,8 @@
 //--------- Sensor config-----------
 #define SENSOR_PIN 4
 #define ADC_OFFSET 0.23
+#define MIN_TEMP 40     // Minimum temperature for brightness decrease.
+#define BDP 0.05        // BRIGHTNESS_DECREASE_PERCENT (Default 5%)
+#define CHECK_DELAY 1   // Check temperature every second.
 
 #endif //WLED_CONFIG_H

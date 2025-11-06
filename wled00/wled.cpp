@@ -2,6 +2,8 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #include "config.h"
+#include "temp.h"
+#include "brightness.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
   #include <ArduinoOTA.h>
@@ -38,8 +40,27 @@ void WLED::reset()
   ESP.restart();
 }
 
+int temp;
 void WLED::loop()
 {
+  // For check temperature and set brightness
+  static unsigned long lastCheck = 0;
+  unsigned long nowe = millis();
+
+  if (nowe - lastCheck >= CHECK_DELAY * 1000) { // Every n second
+    lastCheck = nowe;
+
+    int currentBrightness = strip.getBrightness();
+    Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
+
+    temp = readTemp();
+    Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
+
+    int newBrightness = calcBrightness(temp, currentBrightness);
+    strip.setBrightness(newBrightness, true);
+    Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+  }
+
   static uint32_t      lastHeap = UINT32_MAX;
   static unsigned long heapTime = 0;
 #ifdef WLED_DEBUG
