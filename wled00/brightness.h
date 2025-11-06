@@ -6,6 +6,7 @@
 #define WLED_BRIGHTNESS_H
 
 extern int temp_factor;
+extern int preferredBrightness;
 
 int calcBrightness(int current, int target);
 
