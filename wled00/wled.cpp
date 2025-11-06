@@ -621,6 +621,16 @@ void WLED::beginStrip()
     pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
     digitalWrite(rlyPin, (rlyMde ? bri : !bri));
   }
+    // --- Set default FX mode at startup (WLED 0.16.0) ---
+    if (bootPreset == 0) {
+        Segment& seg = strip.getSegment(0);
+        seg.setMode(EFFECT_ID);
+//        seg.setColor(0, RGBW32(255, 0, 0, 0)); // set color
+        seg.speed = EFFECT_SPEED;
+        seg.intensity = EFFECT_INTENSITY;
+        seg.setOption(SEG_OPTION_ON, true);
+        strip.trigger();
+    }
 }
 
 void WLED::initAP(bool resetAP)

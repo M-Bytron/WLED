@@ -39,4 +39,17 @@
 #define BDP 0.05        // BRIGHTNESS_DECREASE_PERCENT (Default 5%)
 #define CHECK_DELAY 1   // Check temperature every second.
 
+//--------- Effects -----------
+#define ColorLoop 8
+#define TwoDots 50
+#define Wipe 3
+#define TwinkleFox 80
+// ------- AND MORE ... -------
+
+//-------- Default Effect ------
+#define EFFECT_ID ColorLoop
+#define EFFECT_SPEED 128    // 0 - 255
+#define EFFECT_INTENSITY 128    // 0 - 255
+//------------------------------
+
 #endif //WLED_CONFIG_H
