@@ -9,12 +9,12 @@
 
 // ---------------------------------
 // ------ Network Credentials ------
-#define STATIC_SSID     "Bambootec"
-#define STATIC_PASS     "12345678"
+#define STATIC_SSID     "Buero"  // Buero: Based on Harald Circuit
+#define STATIC_PASS     "@Buero#123!"   // @Buero#123!: Based on Harald Circuit
 
 // ---------------------------------
 // ------ DMX Receiver Config ------
-#define DMX_INPUT_RX_PIN    33    // Based on Harald Circuit
+#define DMX_INPUT_RX_PIN    4    // 4: Based on Harald Circuit
 #define DMX_INPUT_TX_PIN    25
 #define DMX_INPUT_EN_PIN    -1   // we dont use RS485 module
 #define DMX_INPUT_PORT      1    // DMX Universe
