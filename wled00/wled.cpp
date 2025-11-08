@@ -2,6 +2,8 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #include "config.h"
+#include "temp.h"
+#include "brightness.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
   #include <ArduinoOTA.h>
@@ -38,8 +40,27 @@ void WLED::reset()
   ESP.restart();
 }
 
+int temp;
 void WLED::loop()
 {
+  // For check temperature and set brightness
+  static unsigned long lastCheck = 0;
+  unsigned long nowe = millis();
+
+  if (nowe - lastCheck >= CHECK_DELAY * 1000) { // Every n second
+    lastCheck = nowe;
+
+    int currentBrightness = strip.getBrightness();
+    Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
+
+    temp = readTemp();
+    Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
+
+    int newBrightness = calcBrightness(temp, currentBrightness);
+    strip.setBrightness(newBrightness, true);
+    Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+  }
+
   static uint32_t      lastHeap = UINT32_MAX;
   static unsigned long heapTime = 0;
 #ifdef WLED_DEBUG
@@ -600,6 +621,16 @@ void WLED::beginStrip()
     pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
     digitalWrite(rlyPin, (rlyMde ? bri : !bri));
   }
+    // --- Set default FX mode at startup (WLED 0.16.0) ---
+    if (bootPreset == 0) {
+        Segment& seg = strip.getSegment(0);
+        seg.setMode(EFFECT_ID);
+//        seg.setColor(0, RGBW32(255, 0, 0, 0)); // set color
+        seg.speed = EFFECT_SPEED;
+        seg.intensity = EFFECT_INTENSITY;
+        seg.setOption(SEG_OPTION_ON, true);
+        strip.trigger();
+    }
 }
 
 void WLED::initAP(bool resetAP)

@@ -1,4 +1,7 @@
 #include "wled.h"
+#include "temp.h"
+#include "brightness.h"
+#include "config.h"
 
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
@@ -369,7 +372,28 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   #endif
 
   bool onBefore = bri;
-  getVal(root["bri"], bri);
+
+  byte newUserBri;
+  getVal(root["bri"], newUserBri);
+  Serial.print("\tnewUserBri: "); Serial.println(newUserBri);
+
+  int temp = readTemp();
+  if (temp > MIN_TEMP) {
+    int currentBrightness = strip.getBrightness();
+    if (newUserBri > currentBrightness) {
+        preferredBrightness = newUserBri;
+        Serial.println("\tRequested brightness bigger than temp. Just Saved!");
+    } else {
+      getVal(root["bri"], bri);
+      preferredBrightness = newUserBri;
+      Serial.println("\tRequested brightness bigger than temp. But Saved & Applied!");
+    }
+  } else {
+    getVal(root["bri"], bri);
+    preferredBrightness = newUserBri;
+    Serial.println("\tRequested brightness in temp range. Saved & Applied!");
+  }
+
   if (bri != briOld) stateChanged = true;
 
   bool on = root["on"] | (bri > 0);

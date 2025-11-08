@@ -611,10 +611,10 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #else
 //  #define DEFAULT_LED_PIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards (if it is unusable it will be reassigned in WS2812FX::finalizeInit())
-#define DEFAULT_LED_PIN MY_LED_PINS   // SETTING DEFAULT LED PINS
+  #define DEFAULT_LED_PIN MY_LED_PINS   // SETTING DEFAULT LED PINS
 #endif
 //#define DEFAULT_LED_TYPE TYPE_WS2812_RGB
-#define DEFAULT_LED_TYPE MY_LED_TYPE    // SETTING DEFAULT LED TYPE: PWM RGBW
+#define DEFAULT_LED_TYPE TYPE_ANALOG_4CH    // SETTING DEFAULT LED TYPE: PWM RGBW
 
 //#define DEFAULT_LED_COUNT 30
 #define DEFAULT_LED_COUNT 1   // NEEDES TO BE 1 FOR LED TYPE PWM RGBW
