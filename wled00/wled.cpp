@@ -9,6 +9,10 @@
   #include <ArduinoOTA.h>
 #endif
 
+#ifdef MBytron_Config
+  #include "MBytron_DMX.h"
+#endif
+
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -579,6 +583,11 @@ void WLED::setup()
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
+  #endif
+  
+  #ifdef MBytron_Config
+  DMX_Setup(DMX_NUM, DMX_TX, DMX_RX);
+  DMX_RX_Task_Init();
   #endif
 }
 

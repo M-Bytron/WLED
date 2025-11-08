@@ -14,6 +14,12 @@
 
 // ---------------------------------
 // ------ DMX Receiver Config ------
+#define MBytron_Config
+
+#define DMX_NUM   2
+#define DMX_TX   17
+#define DMX_RX   33
+
 #define DMX_INPUT_RX_PIN    4    // 4: Based on Harald Circuit
 #define DMX_INPUT_TX_PIN    25
 #define DMX_INPUT_EN_PIN    -1   // we dont use RS485 module
