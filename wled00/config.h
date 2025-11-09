@@ -6,26 +6,20 @@
 #ifndef WLED_CONFIG_H
 #define WLED_CONFIG_H
 
+#define MBytron_Config
 
 // ---------------------------------
 // ------ Network Credentials ------
-#define STATIC_SSID     "Buero"  // Buero: Based on Harald Circuit
-#define STATIC_PASS     "@Buero#123!"   // @Buero#123!: Based on Harald Circuit
+#define STATIC_SSID     "Bambootec"  // Buero: Based on Harald Circuit
+#define STATIC_PASS     "12345678"   // @Buero#123!: Based on Harald Circuit
 
 // ---------------------------------
 // ------ DMX Receiver Config ------
-#define MBytron_Config
+#define DMX_UART_NUM    2  //UART_NUM_2
+#define DMX_TX          -1
+#define DMX_RX          4
+#define START_CHANNEL   1
 
-#define DMX_NUM   2
-#define DMX_TX   -1
-#define DMX_RX   33
-
-#define DMX_INPUT_RX_PIN    18    // 4: Based on Harald Circuit
-#define DMX_INPUT_TX_PIN    25
-#define DMX_INPUT_EN_PIN    -1   // we dont use RS485 module
-#define DMX_INPUT_PORT      1    // DMX Universe
-
-#define DMX_START_CHANNEL 1
 // ---------------------------------
 // ---------- LED Config -----------
 // -> PWM RGBW
@@ -39,24 +33,27 @@
 #define LED_REVERSED    false
 
 //----------------------------------
-//--------- Sensor config-----------
+//--------- Sensor config ----------
 #define SENSOR_PIN 32
 #define ADC_OFFSET 0.23
 #define MIN_TEMP 40     // Minimum temperature for brightness decrease.
 #define BDP 0.05        // BRIGHTNESS_DECREASE_PERCENT (Default 5%)
 #define CHECK_DELAY 1   // Check temperature every second.
 
-//--------- Effects -----------
+//----------------------------------
+//------------ Effects -------------
+// sample of effects:
+#define Wipe 3
 #define ColorLoop 8
 #define TwoDots 50
-#define Wipe 3
 #define TwinkleFox 80
-// ------- AND MORE ... -------
 
 //-------- Default Effect ------
 #define EFFECT_ID ColorLoop
 #define EFFECT_SPEED 128    // 0 - 255
 #define EFFECT_INTENSITY 128    // 0 - 255
-//------------------------------
 
+
+
+//------------------------------
 #endif //WLED_CONFIG_H

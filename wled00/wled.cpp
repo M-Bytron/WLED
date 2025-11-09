@@ -45,6 +45,7 @@ void WLED::reset()
 }
 
 int temp;
+int previous_temp;
 void WLED::loop()
 {
   // For check temperature and set brightness
@@ -55,14 +56,21 @@ void WLED::loop()
     lastCheck = nowe;
 
     int currentBrightness = strip.getBrightness();
-    Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
+    // Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
 
     temp = readTemp();
-    Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
+    // Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
 
     int newBrightness = calcBrightness(temp, currentBrightness);
     strip.setBrightness(newBrightness, true);
-    Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+
+    if (previous_temp != temp){
+      previous_temp = temp;
+      Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
+      Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
+      Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+    }
+    // Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
   }
 
   static uint32_t      lastHeap = UINT32_MAX;
@@ -586,7 +594,7 @@ void WLED::setup()
   #endif
   
   #ifdef MBytron_Config
-  DMX_Setup(DMX_NUM, DMX_TX, DMX_RX);
+  DMX_Setup(DMX_UART_NUM, DMX_TX, DMX_RX);
   DMX_RX_Task_Init();
   #endif
 }

@@ -4,7 +4,7 @@
 
 // ---------------------
 // ------- Macro -------
-#define DMX_FRAME_SIZE 513 // 1 start code + 512 channels
+#define DMX_FRAME_SIZE 514 // 1 start code + 512 channels
 
 // -------------------------
 // ------- Variables -------
