@@ -17,14 +17,15 @@
 #define MBytron_Config
 
 #define DMX_NUM   2
-#define DMX_TX   17
+#define DMX_TX   -1
 #define DMX_RX   33
 
-#define DMX_INPUT_RX_PIN    4    // 4: Based on Harald Circuit
+#define DMX_INPUT_RX_PIN    18    // 4: Based on Harald Circuit
 #define DMX_INPUT_TX_PIN    25
 #define DMX_INPUT_EN_PIN    -1   // we dont use RS485 module
 #define DMX_INPUT_PORT      1    // DMX Universe
 
+#define DMX_START_CHANNEL 1
 // ---------------------------------
 // ---------- LED Config -----------
 // -> PWM RGBW
@@ -39,7 +40,7 @@
 
 //----------------------------------
 //--------- Sensor config-----------
-#define SENSOR_PIN 4
+#define SENSOR_PIN 32
 #define ADC_OFFSET 0.23
 #define MIN_TEMP 40     // Minimum temperature for brightness decrease.
 #define BDP 0.05        // BRIGHTNESS_DECREASE_PERCENT (Default 5%)

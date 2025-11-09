@@ -6,7 +6,7 @@
 #include "config.h"
 
 int temp_factor = 0;
-int preferredBrightness = 0;
+int preferredBrightness = 255;
 
 int calcBrightness(int temp, int brightness) {
     const int STEP = 255 * BDP;
