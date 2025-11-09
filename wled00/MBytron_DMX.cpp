@@ -180,18 +180,24 @@ void dmx_uart_rx_task(void *pvParameters) {
 void print_dmx_data(void *pvParameters) {
   
   dmx_short_frame_t received_frame;
+  dmx_short_frame_t previous_frame;
 
   while (true) {
 
     if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
-      printf("Valid break detected: %lu us\n", (unsigned long)break_width_us);
-      printf("data_couter: %ld\n", data_couter);
-      printf("First 6 DMX bytes: ");
-      for (int i = 0; i < 4; i++) {
-        printf("%02X ", received_frame.data[i]);
+
+      // if (previous_frame != received_frame){
+      if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
+        previous_frame = received_frame;
+        printf("Valid break detected: %lu us\n", (unsigned long)break_width_us);
+        printf("data_couter: %ld\n", data_couter);
+        printf("First 6 DMX bytes: ");
+        for (int i = 0; i < 4; i++) {
+          printf("%02X ", received_frame.data[i]);
+        }
+        printf("\n--------------------------\n");
       }
       setRGBWValues(received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
-      printf("\n--------------------------\n");
     }
 
   }
@@ -206,16 +212,6 @@ void dmx_connection_check_task(void *pvParameters) {
       strip.resume();
       printf("*** DMX DISCONNECTED!\n");
     } 
-    // else if (!dmxIsConnected) {
-    //   setRGBWValues(255, 0, 0, 0);
-    //   vTaskDelay(500 / portTICK_PERIOD_MS);
-    //   setRGBWValues(0, 255, 0, 0);
-    //   vTaskDelay(500 / portTICK_PERIOD_MS);
-    //   setRGBWValues(0, 0, 255, 0);
-    //   vTaskDelay(500 / portTICK_PERIOD_MS);
-    //   setRGBWValues(0, 0, 0, 255);
-    //   vTaskDelay(500 / portTICK_PERIOD_MS);
-    // }
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
