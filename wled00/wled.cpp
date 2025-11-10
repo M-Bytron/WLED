@@ -18,6 +18,11 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+#ifdef MBytron_Config
+int LEDs_Temp;
+int newBrightness;
+#endif
+
 extern "C" void usePWMFixedNMI();
 
 /*
@@ -44,34 +49,33 @@ void WLED::reset()
   ESP.restart();
 }
 
-int temp;
+// int LEDs_Temp;
 int previous_temp;
 void WLED::loop()
 {
+
+  #ifdef MBytron_Config
   // For check temperature and set brightness
   static unsigned long lastCheck = 0;
   unsigned long nowe = millis();
 
   if (nowe - lastCheck >= CHECK_DELAY * 1000) { // Every n second
     lastCheck = nowe;
-
     int currentBrightness = strip.getBrightness();
-    // Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
+    LEDs_Temp = readTemp();
+    newBrightness = calcBrightness(LEDs_Temp, currentBrightness);
+    BusManager::setBrightness(newBrightness);
 
-    temp = readTemp();
-    // Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
-
-    int newBrightness = calcBrightness(temp, currentBrightness);
-    strip.setBrightness(newBrightness, true);
-
-    if (previous_temp != temp){
-      previous_temp = temp;
+    if (previous_temp != LEDs_Temp){
+      previous_temp = LEDs_Temp;
       Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
-      Serial.print("\tTemp: "); Serial.print(temp); Serial.println(" °C");
+      Serial.print("\tLEDs_Temp: "); Serial.print(LEDs_Temp); Serial.println(" °C");
       Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
     }
-    // Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+
   }
+
+  #endif
 
   static uint32_t      lastHeap = UINT32_MAX;
   static unsigned long heapTime = 0;
@@ -611,7 +615,7 @@ void WLED::beginStrip()
 
   if (turnOnAtBoot) {
     if (briS > 0) bri = briS;
-    else if (bri == 0) bri = 128;
+    else if (bri == 0) bri = Turn_ON_Brightness;
   } else {
     // fix for #3196
     if (bootPreset > 0) {
@@ -638,16 +642,16 @@ void WLED::beginStrip()
     pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
     digitalWrite(rlyPin, (rlyMde ? bri : !bri));
   }
-    // --- Set default FX mode at startup (WLED 0.16.0) ---
-    if (bootPreset == 0) {
-        Segment& seg = strip.getSegment(0);
-        seg.setMode(EFFECT_ID);
-//        seg.setColor(0, RGBW32(255, 0, 0, 0)); // set color
-        seg.speed = EFFECT_SPEED;
-        seg.intensity = EFFECT_INTENSITY;
-        seg.setOption(SEG_OPTION_ON, true);
-        strip.trigger();
-    }
+  
+  // --- Set default FX mode at startup (WLED 0.16.0) ---
+  if (bootPreset == 0) {
+    Segment& seg = strip.getSegment(0);
+    seg.setMode(EFFECT_ID);
+    seg.speed = EFFECT_SPEED;
+    seg.intensity = EFFECT_INTENSITY;
+    seg.setOption(SEG_OPTION_ON, true);
+    strip.trigger();
+   }
 }
 
 void WLED::initAP(bool resetAP)

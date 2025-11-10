@@ -11,7 +11,7 @@ int preferredBrightness = 255;
 int calcBrightness(int temp, int brightness) {
     const int STEP = 255 * BDP;
 
-    int diff = temp - MIN_TEMP;
+    int diff = temp - CRITIC_TEMP;
 
     if (diff > 0) {
         if (diff > temp_factor) {

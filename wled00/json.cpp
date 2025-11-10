@@ -378,7 +378,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   Serial.print("\tnewUserBri: "); Serial.println(newUserBri);
 
   int temp = readTemp();
-  if (temp > MIN_TEMP) {
+  if (temp > CRITIC_TEMP) {
     int currentBrightness = strip.getBrightness();
     if (newUserBri > currentBrightness) {
         preferredBrightness = newUserBri;

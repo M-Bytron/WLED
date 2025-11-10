@@ -1,4 +1,5 @@
 #include "MBytron_DMX.h"
+#include "config.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -20,7 +21,6 @@ static const char *TAG = "DMX_RX";
 #define DMX_BAUD_RATE 250000
 #define DMX_RX_BUF_SIZE 514
 #define DMX_TIMEOUT_MS 200
-#define MAX_LEDs_Number 10
 QueueHandle_t uart_queue;
 
 // ---- DMX variables
@@ -53,13 +53,15 @@ SemaphoreHandle_t dmx_break_semaphore;  // used to signal from ISR to task
 
 // ---------- set RGBW values directly ----------
 void setRGBWValues(byte r, byte g, byte b, byte w) {
-  // strip.suspend(); // Block strip servicing
+  
+  if (LEDs_Temp > CRITIC_TEMP)
+    BusManager::setBrightness(newBrightness);
   uint32_t color = RGBW32(r, g, b, w);
   for (int i=0 ; i < MAX_LEDs_Number; i++){
   BusManager::setPixelColor(i, color);
   }
   BusManager::show();
-  // strip.resume(); // Allow strip servicing again
+
 }
 
 // ---------------------------------------------------
@@ -108,7 +110,7 @@ static void IRAM_ATTR dmx_rx_isr_handler(void *arg) {
         break_detected = false;
 
         // Valid DMX break is typically >88 µs
-        if (break_width_us > 80) {
+        if (break_width_us > 88) {
           ready_to_receive = true;
           BaseType_t xHigherPriorityTaskWoken = pdFALSE;
           xSemaphoreGiveFromISR(dmx_break_semaphore, &xHigherPriorityTaskWoken);
@@ -134,7 +136,7 @@ void dmx_gpio_init(void) {
   gpio_install_isr_service(0);
   gpio_isr_handler_add(DMX_RX_PIN, dmx_rx_isr_handler, NULL);
 
-  printf("DMX RX GPIO ISR initialized\n");
+  DEBUG_PRINTF("DMX RX GPIO ISR initialized\n");
 }
 
 // ------- DMX UART RX Task -------
@@ -150,21 +152,28 @@ void dmx_uart_rx_task(void *pvParameters) {
   while (1) {
 
     if (xSemaphoreTake(dmx_break_semaphore, portMAX_DELAY) == pdTRUE) {
-
       dmxlastUpdate = millis();
-      dmxIsConnected = true;
-      strip.suspend(); // Block strip servicing
-      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 50 / portTICK_PERIOD_MS);
+      if (!dmxIsConnected)
+        dmxIsConnected = true;
+      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 100 / portTICK_PERIOD_MS);            
+      // -- valid DMX data
       if (len == DMX_FRAME_SIZE) {
+        strip.suspend(); // Block strip servicing
+        setRGBWValues(dmx_frame[DMXAddress + 1], dmx_frame[DMXAddress + 2], dmx_frame[DMXAddress + 3], dmx_frame[DMXAddress + 4]);
+        // -- Queue DMX to print it in another task
+        #ifdef Print_DMX
         if (dmx_data_queue) {
           data_couter++;
           dmx_short_frame_t frame_to_send;
-          memcpy(frame_to_send.data, dmx_frame + START_CHANNEL + 1, sizeof(frame_to_send.data));
+          memcpy(frame_to_send.data, dmx_frame + DMXAddress + 1, sizeof(frame_to_send.data));
           if (xQueueSend(dmx_data_queue, &frame_to_send, 0) != pdTRUE ) // sends first 6 bytes (array decays to pointer)          
-            printf("Failed to queue\n");
+            DEBUG_PRINTF("Failed to queue\n");
         }
-      } else {
-        printf("Incomplete DMX frame (%d bytes)\n", len);
+        #endif
+      } 
+      // -- Invalid DMX data
+      else {
+        DEBUG_PRINTF("Incomplete DMX frame (%d bytes)\n", len);
       }
       esp_err_t err = uart_flush_input(DMX_UART_NUM);
         if (err != ESP_OK) {
@@ -186,20 +195,20 @@ void print_dmx_data(void *pvParameters) {
 
     if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
 
-      // if (previous_frame != received_frame){
       if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
         previous_frame = received_frame;
-        printf("Valid break detected: %lu us\n", (unsigned long)break_width_us);
-        printf("data_couter: %ld\n", data_couter);
-        printf("First 6 DMX bytes: ");
-        for (int i = 0; i < 4; i++) {
-          printf("%02X ", received_frame.data[i]);
+        DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
+        DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
+        DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White: %02X\n",
+          received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
+        DEBUG_PRINTF("First 6 DMX bytes: ");
+        for (int i = 0; i < 6; i++) {
+          DEBUG_PRINTF("%02X ", dmx_frame[i]);
         }
-        printf("\n--------------------------\n");
-      }
-      setRGBWValues(received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
+        DEBUG_PRINTF("\n");
+        DEBUG_PRINTF("--------------------------\n");
+      }      
     }
-
   }
 }
 
@@ -210,7 +219,7 @@ void dmx_connection_check_task(void *pvParameters) {
     if (dmxIsConnected && (millis() - dmxlastUpdate > DMX_TIMEOUT_MS)) {
       dmxIsConnected = false;
       strip.resume();
-      printf("*** DMX DISCONNECTED!\n");
+      DEBUG_PRINTF("*** DMX DISCONNECTED!\n");
     } 
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
@@ -234,8 +243,10 @@ void DMX_RX_Task_Init() {
                           NULL, 0);
   xTaskCreatePinnedToCore(dmx_connection_check_task,
                           "dmx_connection_check_task", 4096, NULL, 1, NULL, 0);
+  #ifdef Print_DMX
   xTaskCreatePinnedToCore(print_dmx_data,
                           "print_dmx_data", 2048, NULL, 1, NULL, 0);
+  #endif
 }
 
 // ------- Process DMX Frame -------
@@ -246,7 +257,7 @@ void process_dmx_frame(uint8_t *frame, int len) {
 }
 
 // ------- log Buffer Hex -------
-void logBufferHex(const char *tag, const uint8_t *data, size_t len) {
+void logBufferHex(const uint8_t *data, size_t len) {
 
   DEBUG_PRINTF("Start Byte: %02X\n", data[0]);
   DEBUG_PRINTF("Data: ");

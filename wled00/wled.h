@@ -195,6 +195,11 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "bus_manager.h"
 #include "FX.h"
 
+#ifdef MBytron_Config
+extern int LEDs_Temp;
+extern int newBrightness;
+#endif
+
 #ifndef CLIENT_SSID
   #define CLIENT_SSID DEFAULT_CLIENT_SSID
 #endif
@@ -424,7 +429,7 @@ WLED_GLOBAL bool cctICused          _INIT(false); // CCT IC used (Athom 15W bulb
 #endif
 WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on colors
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
-WLED_GLOBAL float gammaCorrectVal   _INIT(2.2f);  // gamma correction value
+WLED_GLOBAL float gammaCorrectVal   _INIT(MY_GAMMA_CORRECT);  // gamma correction value
 
 WLED_GLOBAL byte colPri[] _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
 WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
@@ -526,6 +531,7 @@ WLED_GLOBAL bool retainMqttMsg _INIT(false);               // retain brightness 
 #else
 #define WLED_MQTT_CONNECTED false
 #endif
+
 
 #ifndef WLED_DISABLE_HUESYNC
 WLED_GLOBAL bool huePollingEnabled _INIT(false);           // poll hue bridge for light state
