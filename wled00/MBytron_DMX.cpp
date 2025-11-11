@@ -11,6 +11,10 @@
 // ------- Globals -------
 int enablePin = 21;
 
+/////////////////////////////////////
+uint32_t mab_duration = 0;
+//////////////////////////////////////////
+
 static const char *TAG = "DMX_RX";
 
 // ---- UART Configs
@@ -145,7 +149,7 @@ void dmx_uart_rx_task(void *pvParameters) {
   uart_event_t event;
   int len;
   bool break_detected = false;
-  uint32_t break_start_time = 0;
+  // uint32_t break_start_time = 0;
   uint8_t trash = 0;
   size_t buffer_uart_rx = 0;
 
@@ -153,6 +157,7 @@ void dmx_uart_rx_task(void *pvParameters) {
 
     if (xSemaphoreTake(dmx_break_semaphore, portMAX_DELAY) == pdTRUE) {
       dmxlastUpdate = millis();
+      mab_duration = dmxlastUpdate - break_end_time;  
       if (!dmxIsConnected)
         dmxIsConnected = true;
       int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 100 / portTICK_PERIOD_MS);            
@@ -181,6 +186,58 @@ void dmx_uart_rx_task(void *pvParameters) {
         }
       ready_to_receive = false;
       }
+    
+    // Wait for UART events
+    /*if (xQueueReceive(uart_queue, (void *)&event, portMAX_DELAY)) {
+
+      // if (dmx_receiving_data == false) {
+        switch (event.type) {
+
+        case UART_BREAK:
+          break_detected = true;
+          break_start_time = millis();
+          // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
+
+          uart_read_bytes(DMX_UART_NUM, &trash, 1, 10 / portTICK_PERIOD_MS);
+          // ESP_ERROR_CHECK(uart_get_buffered_data_len(DMX_UART_NUM, (size_t*)&buffer_uart_rx));
+          // DEBUG_PRINTF("BREAK: after Buffered data: %u\n", buffer_uart_rx);
+          break;
+        
+          default:
+          case UART_DATA:
+          if (break_detected) {
+            // Measure MAB duration (time between BREAK end and data start)
+            uint32_t current_time = millis();
+            mab_duration = current_time - break_start_time;            
+            // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
+            
+            // Read the DMX frame
+            int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE-1, 50 / portTICK_PERIOD_MS);
+            strip.suspend(); // Block strip servicing
+            setRGBWValues(dmx_frame[DMXAddress], dmx_frame[DMXAddress], dmx_frame[DMXAddress], dmx_frame[DMXAddress]);
+            // -- Queue DMX to print it in another task
+            #ifdef Print_DMX
+            if (dmx_data_queue) {
+              data_couter++;
+              dmx_short_frame_t frame_to_send;
+              memcpy(frame_to_send.data, dmx_frame + DMXAddress + 1, sizeof(frame_to_send.data));
+              if (xQueueSend(dmx_data_queue, &frame_to_send, 0) != pdTRUE ) // sends first 6 bytes (array decays to pointer)          
+                DEBUG_PRINTF("Failed to queue\n");
+            }
+            #endif
+            
+            break_detected = false;
+          }
+          break;
+
+        // default:
+          // DEBUG_PRINTF("default\n");
+          // break;
+        }
+
+    }*/
+
+    
   }
 
 }
@@ -195,9 +252,14 @@ void print_dmx_data(void *pvParameters) {
 
     if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
 
-      if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
+      // if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
         previous_frame = received_frame;
+        ////////////////////////////////////////////
+        // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
+        // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
+        ////////////////////////////////////////////
         DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
+        DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
         DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
         DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White: %02X\n",
           received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
@@ -207,7 +269,7 @@ void print_dmx_data(void *pvParameters) {
         }
         DEBUG_PRINTF("\n");
         DEBUG_PRINTF("--------------------------\n");
-      }      
+      // }      
     }
   }
 }
