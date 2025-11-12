@@ -30,7 +30,7 @@
 // ---------- LED Config -----------
 #define MY_LED_TYPE         TYPE_ANALOG_4CH // PWM RGBW
 #define LED_REVERSED        false
-#define MY_GAMMA_CORRECT    1.5f            // previous: 2.
+#define MY_GAMMA_CORRECT    1.5f            // previous: 2.8f
 #define MAX_LEDs_Number     1               // Number of the LEDs, for PWM RGBW all the LEDs are paralleled
 #define Turn_ON_Brightness  0xFF            // The value of brightness (0-255) when esp32 is rebooted
 

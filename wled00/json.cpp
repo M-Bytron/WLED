@@ -863,6 +863,15 @@ void serializeInfo(JsonObject root)
   getTimeString(time);
   root[F("time")] = time;
 
+  // Add custom LED temperature (from global LEDs_Temp in wled.cpp) to Info page
+  JsonObject user = root["u"];
+  if (user.isNull()) user = root.createNestedObject("u");
+  {
+    JsonArray t = user.createNestedArray(F("LED Temperature"));
+    t.add(LEDs_Temp);
+    t.add(F("°C"));
+  }
+
   UsermodManager::addToJsonInfo(root);
 
   uint16_t os = 0;
