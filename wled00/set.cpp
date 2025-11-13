@@ -425,9 +425,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("DA")).toInt();
     if (t >= 0  && t <= 510) {
       DMXAddress = t;
-      DEBUG_PRINTF("-------------------------\n");
-      DEBUG_PRINTF("** DMX Start Channel: %u**\n", DMXAddress);
-      DEBUG_PRINTF("-------------------------\n");
+      DEBUG_PRINTF("--------------------------\n");
+      DEBUG_PRINTF("** DMX Start Channel: %u **\n", DMXAddress);
+      DEBUG_PRINTF("--------------------------\n");
     }
     t = request->arg(F("XX")).toInt();
     if (t >= 0  && t <= 150) DMXSegmentSpacing = t;

@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "wled.h"
 #include <Arduino.h>
+#include <cstddef>
 // #include "set.cpp"
 
 // ----------------------
@@ -12,7 +13,9 @@
 int enablePin = 21;
 
 /////////////////////////////////////
-uint32_t mab_duration = 0;
+volatile uint64_t dmx_start_byte_received = 0;
+volatile uint64_t mab_duration = 0;
+uart_config_t uart_config;
 //////////////////////////////////////////
 
 static const char *TAG = "DMX_RX";
@@ -48,6 +51,11 @@ volatile uint64_t break_start_time = 0;
 volatile uint64_t break_end_time = 0;
 volatile uint32_t break_width_us = 0;
 volatile bool ready_to_receive = false;
+volatile bool wait_to_start_dmx_data = false;
+volatile int16_t bytes_in_fifo = 0;
+volatile int16_t bytes_in_fifo_2 = 0;
+volatile int16_t bytes_in_fifo_3 = 0;
+
 SemaphoreHandle_t dmx_break_semaphore;  // used to signal from ISR to task
 
 
@@ -79,7 +87,7 @@ void DMX_Setup(int dmx_num, int TX_PIN, int RX_PIN) {
   DEBUG_PRINTF(">  DMX Setup <\n");
   DEBUG_PRINTF("--------------\n");
 
-  uart_config_t uart_config = {.baud_rate = DMX_BAUD_RATE,
+  uart_config = {.baud_rate = DMX_BAUD_RATE,
                                .data_bits = UART_DATA_8_BITS,
                                .parity = UART_PARITY_DISABLE,
                                .stop_bits = UART_STOP_BITS_2,
@@ -92,7 +100,7 @@ void DMX_Setup(int dmx_num, int TX_PIN, int RX_PIN) {
 
   // Install UART driver with event queue
   // QueueHandle_t uart_queue;
-  uart_driver_install(dmx_num, DMX_RX_BUF_SIZE, 0, 20, &uart_queue, 0);
+  uart_driver_install(dmx_num, 2048, 0, 20, &uart_queue, 0);
   DEBUG_PRINTF("DMX UART RX task started!\n");
 }
 
@@ -115,7 +123,9 @@ static void IRAM_ATTR dmx_rx_isr_handler(void *arg) {
 
         // Valid DMX break is typically >88 µs
         if (break_width_us > 88) {
+          // uart_reset_rx_fifo(DMX_UART_NUM);
           ready_to_receive = true;
+          wait_to_start_dmx_data = true;
           BaseType_t xHigherPriorityTaskWoken = pdFALSE;
           xSemaphoreGiveFromISR(dmx_break_semaphore, &xHigherPriorityTaskWoken);
           if (xHigherPriorityTaskWoken)
@@ -123,6 +133,19 @@ static void IRAM_ATTR dmx_rx_isr_handler(void *arg) {
         }
       }
     }
+  }
+  // MBA duration
+  if (ready_to_receive && wait_to_start_dmx_data){
+    int level = gpio_get_level(DMX_RX_PIN);    
+    if (level == 0) {
+      size_t fifo_n;
+      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n);
+      bytes_in_fifo = fifo_n;
+      // uart_flush_input(DMX_UART_NUM);
+      wait_to_start_dmx_data = false;
+      uint64_t now = esp_timer_get_time(); // in microseconds
+      mab_duration = now - break_end_time;
+    }  
   }
 }
 
@@ -157,12 +180,17 @@ void dmx_uart_rx_task(void *pvParameters) {
 
     if (xSemaphoreTake(dmx_break_semaphore, portMAX_DELAY) == pdTRUE) {
       dmxlastUpdate = millis();
-      mab_duration = dmxlastUpdate - break_end_time;  
+      // calculate MBA duration
+      // dmx_start_byte_received  = esp_timer_get_time();
+      // mab_duration = dmx_start_byte_received - break_end_time;  
       if (!dmxIsConnected)
         dmxIsConnected = true;
-      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 100 / portTICK_PERIOD_MS);            
+      size_t fifo_n;
+      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n);
+      bytes_in_fifo_2 = fifo_n;
+      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 30 / portTICK_PERIOD_MS);            
       // -- valid DMX data
-      if (len == DMX_FRAME_SIZE) {
+      // if (len == DMX_FRAME_SIZE) {
         strip.suspend(); // Block strip servicing
         setRGBWValues(dmx_frame[DMXAddress + 1], dmx_frame[DMXAddress + 2], dmx_frame[DMXAddress + 3], dmx_frame[DMXAddress + 4]);
         // -- Queue DMX to print it in another task
@@ -175,15 +203,20 @@ void dmx_uart_rx_task(void *pvParameters) {
             DEBUG_PRINTF("Failed to queue\n");
         }
         #endif
-      } 
+      // }
       // -- Invalid DMX data
       else {
         DEBUG_PRINTF("Incomplete DMX frame (%d bytes)\n", len);
       }
-      esp_err_t err = uart_flush_input(DMX_UART_NUM);
+      size_t fifo_n2;
+      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n2);
+      bytes_in_fifo_3 = fifo_n2;
+      if (bytes_in_fifo_3 > 1){
+        esp_err_t err = uart_flush_input(DMX_UART_NUM);
         if (err != ESP_OK) {
-            DEBUG_PRINTF("UART flush failed: %d\n", err);
-        }
+          DEBUG_PRINTF("UART flush failed: %d\n", err);
+          }
+      }
       ready_to_receive = false;
       }
     
@@ -252,12 +285,15 @@ void print_dmx_data(void *pvParameters) {
 
     if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
 
-      // if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
+      if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
         previous_frame = received_frame;
         ////////////////////////////////////////////
         // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
         // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
         ////////////////////////////////////////////
+        DEBUG_PRINTF("Bytes after detection break: %u\n", bytes_in_fifo);
+        DEBUG_PRINTF("Bytes before start saving: %u\n", bytes_in_fifo_2);
+        DEBUG_PRINTF("Bytes before clearing: %u\n", bytes_in_fifo_3);
         DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
         DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
         DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
@@ -269,7 +305,7 @@ void print_dmx_data(void *pvParameters) {
         }
         DEBUG_PRINTF("\n");
         DEBUG_PRINTF("--------------------------\n");
-      // }      
+      }      
     }
   }
 }
