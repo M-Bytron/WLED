@@ -198,6 +198,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #ifdef MBytron_Config
 extern int LEDs_Temp;
 extern int newBrightness;
+extern bool effect_updated;
 #endif
 
 #ifndef CLIENT_SSID
@@ -500,7 +501,7 @@ WLED_GLOBAL uint16_t e131Port _INIT(5568);                        // DMX in port
 WLED_GLOBAL byte e131Priority _INIT(0);                           // E1.31 port priority (if != 0 priority handling is active)
 WLED_GLOBAL E131Priority highPriority _INIT(3);                   // E1.31 highest priority tracking, init = timeout in seconds
 WLED_GLOBAL byte DMXMode _INIT(DMX_MODE_MULTIPLE_RGB);            // DMX mode (s.a.)
-WLED_GLOBAL uint16_t DMXAddress _INIT(1);                         // DMX start address of fixture, a.k.a. first Channel [for E1.31 (sACN) protocol]
+WLED_GLOBAL uint16_t DMXAddress _INIT(START_CHANNEL);                         // DMX start address of fixture, a.k.a. first Channel [for E1.31 (sACN) protocol]
 WLED_GLOBAL uint16_t DMXSegmentSpacing _INIT(0);                  // Number of void/unused channels between each segments DMX channels
 WLED_GLOBAL byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT]; // to detect packet loss
 WLED_GLOBAL bool e131Multicast _INIT(false);                      // multicast or unicast
@@ -749,9 +750,9 @@ WLED_GLOBAL bool notifyHue    _INIT(false);                       // send notifi
 #endif
 
 // effects
-WLED_GLOBAL byte effectCurrent _INIT(0);
-WLED_GLOBAL byte effectSpeed _INIT(128);
-WLED_GLOBAL byte effectIntensity _INIT(128);
+WLED_GLOBAL byte effectCurrent _INIT(My_Effect_ID);
+WLED_GLOBAL byte effectSpeed _INIT(My_Effect_Speed);
+WLED_GLOBAL byte effectIntensity _INIT(My_Effect_Intensity);
 WLED_GLOBAL byte effectPalette _INIT(0);
 WLED_GLOBAL bool stateChanged _INIT(false);
 

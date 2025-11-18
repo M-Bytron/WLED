@@ -21,6 +21,7 @@
 #ifdef MBytron_Config
 int LEDs_Temp;
 int newBrightness;
+bool effect_updated;
 #endif
 
 extern "C" void usePWMFixedNMI();
@@ -646,9 +647,10 @@ void WLED::beginStrip()
   // --- Set default FX mode at startup (WLED 0.16.0) ---
   if (bootPreset == 0) {
     Segment& seg = strip.getSegment(0);
-    seg.setMode(EFFECT_ID);
-    seg.speed = EFFECT_SPEED;
-    seg.intensity = EFFECT_INTENSITY;
+    DEBUG_PRINTF("Playing Effect of %lu\n", effectCurrent);
+    seg.setMode(effectCurrent);
+    seg.speed = effectSpeed;
+    seg.intensity = effectIntensity;
     seg.setOption(SEG_OPTION_ON, true);
     strip.trigger();
    }

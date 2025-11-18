@@ -14,7 +14,8 @@
 #define DMX_TX              -1           // don't change it
 #define DMX_RX              4
 #define SENSOR_PIN          32
-#define MY_LED_PINS         22,21,17,16  // Red, Green, Blue, White (Based on Harald Circuit)
+// #define MY_LED_PINS         26  // for WS2812
+#define MY_LED_PINS         22,21,17,16  // RGBW PWM LED: Red, Green, Blue, White (Based on Harald Circuit)
 
 // ---------------------------------
 // ------ Network Credentials ------
@@ -24,15 +25,16 @@
 // ---------------------------------
 // ------ DMX Receiver Config ------
 #define DMX_UART_NUM    2  //UART_NUM_2
-// #define START_CHANNEL   1  // DMXAddress
+#define START_CHANNEL   1  // DMXAddress
 
 // ---------------------------------
 // ---------- LED Config -----------
-#define MY_LED_TYPE         TYPE_ANALOG_4CH // PWM RGBW
-#define LED_REVERSED        false
-#define MY_GAMMA_CORRECT    1.5f            // previous: 2.8f
-#define MAX_LEDs_Number     1               // Number of the LEDs, for PWM RGBW all the LEDs are paralleled
-#define Turn_ON_Brightness  0xFF            // The value of brightness (0-255) when esp32 is rebooted
+#define MY_LED_TYPE             TYPE_ANALOG_4CH // PWM RGBW 
+// #define MY_LED_TYPE             TYPE_WS2812_RGB // PWM RGBW 
+#define LED_REVERSED            false
+#define MY_GAMMA_CORRECT        1.5f            // previous: 2.8f
+#define MAX_LEDs_Number         1               // Number of the LEDs, for PWM RGBW all the LEDs are paralleled
+#define Turn_ON_Brightness      0xFF            // The value of brightness (0-255) when esp32 is rebooted
 
 //----------------------------------
 //--------- Sensor config ----------
@@ -50,9 +52,9 @@
 #define TwinkleFox      80
 
 //-------- Default Effect ------
-#define EFFECT_ID               ColorLoop
-#define EFFECT_SPEED            128    // 0 - 255
-#define EFFECT_INTENSITY        128    // 0 - 255
+#define My_Effect_ID               ColorLoop
+#define My_Effect_Speed            128    // 0 - 255
+#define My_Effect_Intensity        128    // 0 - 255
 
 
 //------------------------------

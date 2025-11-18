@@ -372,9 +372,10 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   #endif
 
   bool onBefore = bri;
+  getVal(root["bri"], bri);
 
-  byte newUserBri;
-  getVal(root["bri"], newUserBri);
+  // ----- M-Bytron Code -----
+  byte newUserBri = bri; 
   Serial.print("\tnewUserBri: "); Serial.println(newUserBri);
 
   int temp = readTemp();
@@ -393,6 +394,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     preferredBrightness = newUserBri;
     Serial.println("\tRequested brightness in temp range. Saved & Applied!");
   }
+  // ----- M-Bytron Code -----
 
   if (bri != briOld) stateChanged = true;
 

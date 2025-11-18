@@ -53,8 +53,8 @@ volatile uint32_t break_width_us = 0;
 volatile bool ready_to_receive = false;
 volatile bool wait_to_start_dmx_data = false;
 volatile int16_t bytes_in_fifo = 0;
-volatile int16_t bytes_in_fifo_2 = 0;
-volatile int16_t bytes_in_fifo_3 = 0;
+volatile int16_t byte_before_start_saving = 0;
+volatile int16_t byte_before_clearing = 0;
 
 SemaphoreHandle_t dmx_break_semaphore;  // used to signal from ISR to task
 
@@ -187,8 +187,8 @@ void dmx_uart_rx_task(void *pvParameters) {
         dmxIsConnected = true;
       size_t fifo_n;
       uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n);
-      bytes_in_fifo_2 = fifo_n;
-      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 30 / portTICK_PERIOD_MS);            
+      byte_before_start_saving = fifo_n;
+      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 50 / portTICK_PERIOD_MS);            
       // -- valid DMX data
       // if (len == DMX_FRAME_SIZE) {
         strip.suspend(); // Block strip servicing
@@ -210,8 +210,9 @@ void dmx_uart_rx_task(void *pvParameters) {
       }
       size_t fifo_n2;
       uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n2);
-      bytes_in_fifo_3 = fifo_n2;
-      if (bytes_in_fifo_3 > 1){
+      byte_before_clearing = fifo_n2;
+      if (byte_before_clearing > 1){
+        DEBUG_PRINTF(" ===> Cache not empty: %d\n", byte_before_clearing);
         esp_err_t err = uart_flush_input(DMX_UART_NUM);
         if (err != ESP_OK) {
           DEBUG_PRINTF("UART flush failed: %d\n", err);
@@ -285,27 +286,27 @@ void print_dmx_data(void *pvParameters) {
 
     if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
 
-      if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
-        previous_frame = received_frame;
+      // if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
+      //   previous_frame = received_frame;
         ////////////////////////////////////////////
         // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
         // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
         ////////////////////////////////////////////
         DEBUG_PRINTF("Bytes after detection break: %u\n", bytes_in_fifo);
-        DEBUG_PRINTF("Bytes before start saving: %u\n", bytes_in_fifo_2);
-        DEBUG_PRINTF("Bytes before clearing: %u\n", bytes_in_fifo_3);
-        DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
-        DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
-        DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
-        DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White: %02X\n",
-          received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
-        DEBUG_PRINTF("First 6 DMX bytes: ");
-        for (int i = 0; i < 6; i++) {
-          DEBUG_PRINTF("%02X ", dmx_frame[i]);
-        }
+        DEBUG_PRINTF("Bytes before start saving: %u\n", byte_before_start_saving);
+        DEBUG_PRINTF("Bytes before clearing: %u\n", byte_before_clearing);
+        // DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
+        // DEBUG_PRINTF("MAB duration: %.2f us\n", mab_duration/1000.0);
+        // DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
+        // DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White: %02X\n",
+        //   received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
+        // DEBUG_PRINTF("First 6 DMX bytes: ");
+        // for (int i = 0; i < 100; i++) {
+        //   DEBUG_PRINTF("%02X ", dmx_frame[i]);
+        // }
         DEBUG_PRINTF("\n");
-        DEBUG_PRINTF("--------------------------\n");
-      }      
+        // DEBUG_PRINTF("--------------------------\n");
+      // }      
     }
   }
 }
