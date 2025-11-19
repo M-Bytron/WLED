@@ -25,9 +25,10 @@ static const char *TAG = "DMX_RX";
 #define DMX_TX_PIN DMX_TX
 
 // #define DMX_FRAME_SIZE 513 // 1 start code + 512 channels
-#define DMX_BAUD_RATE 250000
-#define DMX_RX_BUF_SIZE 514
-#define DMX_TIMEOUT_MS 200
+#define DMX_BAUD_RATE     250000
+#define DMX_RX_BUF_SIZE   DMX_FRAME_SIZE
+#define DMX_TIMEOUT_MS    200
+
 QueueHandle_t uart_queue;
 
 // ---- DMX variables
@@ -41,9 +42,13 @@ QueueHandle_t dmx_data_queue;
 uint32_t data_couter = 0;
 
 typedef struct {
-    uint8_t data[required_dmx_data_size];
-  } dmx_short_frame_t;
+  uint8_t data[required_dmx_data_size];
+} dmx_short_frame_t;
+dmx_short_frame_t frame_to_send; 
 
+size_t fifo_B_bef_strtr_svng;
+size_t fifo_B_aft_break;
+size_t fifo_B_bef_clr;
 
 // ---- Break Variable
 volatile bool break_detected = false;
@@ -55,9 +60,9 @@ volatile bool wait_to_start_dmx_data = false;
 volatile int16_t bytes_in_fifo = 0;
 volatile int16_t byte_before_start_saving = 0;
 volatile int16_t byte_before_clearing = 0;
+volatile int16_t extra_break = 0;
 
-SemaphoreHandle_t dmx_break_semaphore;  // used to signal from ISR to task
-
+SemaphoreHandle_t dmx_break_semaphore; // used to signal from ISR to task
 
 // ---------------------------------------------------
 // ------- General Functions -------------------------
@@ -65,15 +70,14 @@ SemaphoreHandle_t dmx_break_semaphore;  // used to signal from ISR to task
 
 // ---------- set RGBW values directly ----------
 void setRGBWValues(byte r, byte g, byte b, byte w) {
-  
+
   if (LEDs_Temp > CRITIC_TEMP)
     BusManager::setBrightness(newBrightness);
   uint32_t color = RGBW32(r, g, b, w);
-  for (int i=0 ; i < MAX_LEDs_Number; i++){
-  BusManager::setPixelColor(i, color);
+  for (int i = 0; i < MAX_LEDs_Number; i++) {
+    BusManager::setPixelColor(i, color);
   }
   BusManager::show();
-
 }
 
 // ---------------------------------------------------
@@ -88,65 +92,63 @@ void DMX_Setup(int dmx_num, int TX_PIN, int RX_PIN) {
   DEBUG_PRINTF("--------------\n");
 
   uart_config = {.baud_rate = DMX_BAUD_RATE,
-                               .data_bits = UART_DATA_8_BITS,
-                               .parity = UART_PARITY_DISABLE,
-                               .stop_bits = UART_STOP_BITS_2,
-                               .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-                               .source_clk = UART_SCLK_APB};
+                 .data_bits = UART_DATA_8_BITS,
+                 .parity = UART_PARITY_DISABLE,
+                 .stop_bits = UART_STOP_BITS_2,
+                 .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+                 .source_clk = UART_SCLK_APB};
 
   uart_param_config(dmx_num, &uart_config);
-  uart_set_pin(dmx_num, DMX_TX, DMX_RX, UART_PIN_NO_CHANGE,
-               UART_PIN_NO_CHANGE);
+  uart_set_pin(dmx_num, DMX_TX, DMX_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
   // Install UART driver with event queue
   // QueueHandle_t uart_queue;
-  uart_driver_install(dmx_num, 2048, 0, 20, &uart_queue, 0);
+  uart_driver_install(dmx_num, DMX_RX_BUF_SIZE, 0, 20, &uart_queue, 0);
   DEBUG_PRINTF("DMX UART RX task started!\n");
 }
 
 // ------- Break Detection ISR -------
-static void IRAM_ATTR dmx_rx_isr_handler(void *arg) { 
+static void IRAM_ATTR dmx_rx_isr_handler(void *arg) {
 
-  if (!ready_to_receive) {
-    int level = gpio_get_level(DMX_RX_PIN);
-    uint64_t now = esp_timer_get_time(); // in microseconds
-    if (level == 0) {
-      // Falling edge → start of break
-      break_detected = true;
-      break_start_time = now;
-    } else {
-      // Rising edge → end of break
-      if (break_detected) {
-        break_end_time = now;
-        break_width_us = (uint32_t)(break_end_time - break_start_time);
-        break_detected = false;
+  int level = gpio_get_level(DMX_RX_PIN);
+  uint64_t now = esp_timer_get_time(); // in microseconds
+  if (level == 0) {
+    // Falling edge → start of break
+    break_detected = true;
+    break_start_time = now;
+  } else {
+    // Rising edge → end of break
+    if (break_detected) {
+      break_end_time = now;
+      break_width_us = (uint32_t)(break_end_time - break_start_time);
+      break_detected = false;
 
-        // Valid DMX break is typically >88 µs
-        if (break_width_us > 88) {
-          // uart_reset_rx_fifo(DMX_UART_NUM);
+      // Valid DMX break is typically >88 µs
+      if (break_width_us > 88) {
+        if (!ready_to_receive) {          
+          uart_get_buffered_data_len(DMX_UART_NUM, &fifo_B_aft_break);
+          // bytes_in_fifo = fifo_B_aft_break;
+          uart_flush_input(DMX_UART_NUM);
           ready_to_receive = true;
-          wait_to_start_dmx_data = true;
+          // wait_to_start_dmx_data = true;
           BaseType_t xHigherPriorityTaskWoken = pdFALSE;
           xSemaphoreGiveFromISR(dmx_break_semaphore, &xHigherPriorityTaskWoken);
           if (xHigherPriorityTaskWoken)
             portYIELD_FROM_ISR();
-        }
+        } else
+          extra_break++;
       }
     }
   }
-  // MBA duration
-  if (ready_to_receive && wait_to_start_dmx_data){
-    int level = gpio_get_level(DMX_RX_PIN);    
-    if (level == 0) {
-      size_t fifo_n;
-      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n);
-      bytes_in_fifo = fifo_n;
-      // uart_flush_input(DMX_UART_NUM);
+  // ---- MBA duration
+  /*if (ready_to_receive && wait_to_start_dmx_data) {
+    int level = gpio_get_level(DMX_RX_PIN);
+    if (level == 0) {      
       wait_to_start_dmx_data = false;
       uint64_t now = esp_timer_get_time(); // in microseconds
       mab_duration = now - break_end_time;
-    }  
-  }
+    }
+  }*/
 }
 
 // ------- GPIO Init -------
@@ -180,47 +182,36 @@ void dmx_uart_rx_task(void *pvParameters) {
 
     if (xSemaphoreTake(dmx_break_semaphore, portMAX_DELAY) == pdTRUE) {
       dmxlastUpdate = millis();
-      // calculate MBA duration
-      // dmx_start_byte_received  = esp_timer_get_time();
-      // mab_duration = dmx_start_byte_received - break_end_time;  
       if (!dmxIsConnected)
-        dmxIsConnected = true;
-      size_t fifo_n;
-      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n);
-      byte_before_start_saving = fifo_n;
-      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE, 50 / portTICK_PERIOD_MS);            
+        dmxIsConnected = true;      
+      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_B_bef_strtr_svng);
+      // byte_before_start_saving = fifo_B_bef_strtr_svng;
+      int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE,
+                                50 / portTICK_PERIOD_MS);
       // -- valid DMX data
-      // if (len == DMX_FRAME_SIZE) {
-        strip.suspend(); // Block strip servicing
-        setRGBWValues(dmx_frame[DMXAddress + 1], dmx_frame[DMXAddress + 2], dmx_frame[DMXAddress + 3], dmx_frame[DMXAddress + 4]);
-        // -- Queue DMX to print it in another task
-        #ifdef Print_DMX
+      if (len == DMX_FRAME_SIZE) {
+        // -- Queue DMX to be processed it in another task
         if (dmx_data_queue) {
           data_couter++;
-          dmx_short_frame_t frame_to_send;
-          memcpy(frame_to_send.data, dmx_frame + DMXAddress + 1, sizeof(frame_to_send.data));
-          if (xQueueSend(dmx_data_queue, &frame_to_send, 0) != pdTRUE ) // sends first 6 bytes (array decays to pointer)          
-            DEBUG_PRINTF("Failed to queue\n");
+          memcpy(frame_to_send.data, dmx_frame + DMXAddress, sizeof(frame_to_send.data));
+          xQueueSend(dmx_data_queue, &frame_to_send, 0);
         }
-        #endif
-      // }
+      }
       // -- Invalid DMX data
       else {
         DEBUG_PRINTF("Incomplete DMX frame (%d bytes)\n", len);
-      }
-      size_t fifo_n2;
-      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_n2);
-      byte_before_clearing = fifo_n2;
-      if (byte_before_clearing > 1){
-        DEBUG_PRINTF(" ===> Cache not empty: %d\n", byte_before_clearing);
-        esp_err_t err = uart_flush_input(DMX_UART_NUM);
-        if (err != ESP_OK) {
-          DEBUG_PRINTF("UART flush failed: %d\n", err);
-          }
-      }
+      }      
+      uart_get_buffered_data_len(DMX_UART_NUM, &fifo_B_bef_clr);
+      // byte_before_clearing = fifo_B_bef_clr;
+      // if (byte_before_clearing > 1) {
+      //   esp_err_t err = uart_flush_input(DMX_UART_NUM);
+      //   if (err != ESP_OK) {
+      //     DEBUG_PRINTF("UART flush failed: %d\n", err);
+      //   }
+      // }
       ready_to_receive = false;
-      }
-    
+    }
+
     // Wait for UART events
     /*if (xQueueReceive(uart_queue, (void *)&event, portMAX_DELAY)) {
 
@@ -233,33 +224,36 @@ void dmx_uart_rx_task(void *pvParameters) {
           // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
 
           uart_read_bytes(DMX_UART_NUM, &trash, 1, 10 / portTICK_PERIOD_MS);
-          // ESP_ERROR_CHECK(uart_get_buffered_data_len(DMX_UART_NUM, (size_t*)&buffer_uart_rx));
+          // ESP_ERROR_CHECK(uart_get_buffered_data_len(DMX_UART_NUM,
+    (size_t*)&buffer_uart_rx));
           // DEBUG_PRINTF("BREAK: after Buffered data: %u\n", buffer_uart_rx);
           break;
-        
+
           default:
           case UART_DATA:
           if (break_detected) {
             // Measure MAB duration (time between BREAK end and data start)
             uint32_t current_time = millis();
-            mab_duration = current_time - break_start_time;            
+            mab_duration = current_time - break_start_time;
             // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
-            
+
             // Read the DMX frame
-            int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE-1, 50 / portTICK_PERIOD_MS);
-            strip.suspend(); // Block strip servicing
-            setRGBWValues(dmx_frame[DMXAddress], dmx_frame[DMXAddress], dmx_frame[DMXAddress], dmx_frame[DMXAddress]);
+            int len = uart_read_bytes(DMX_UART_NUM, dmx_frame, DMX_FRAME_SIZE-1,
+    50 / portTICK_PERIOD_MS); strip.suspend(); // Block strip servicing
+            setRGBWValues(dmx_frame[DMXAddress], dmx_frame[DMXAddress],
+    dmx_frame[DMXAddress], dmx_frame[DMXAddress]);
             // -- Queue DMX to print it in another task
             #ifdef Print_DMX
             if (dmx_data_queue) {
               data_couter++;
               dmx_short_frame_t frame_to_send;
-              memcpy(frame_to_send.data, dmx_frame + DMXAddress + 1, sizeof(frame_to_send.data));
-              if (xQueueSend(dmx_data_queue, &frame_to_send, 0) != pdTRUE ) // sends first 6 bytes (array decays to pointer)          
+              memcpy(frame_to_send.data, dmx_frame + DMXAddress + 1,
+    sizeof(frame_to_send.data)); if (xQueueSend(dmx_data_queue, &frame_to_send,
+    0) != pdTRUE ) // sends first 6 bytes (array decays to pointer)
                 DEBUG_PRINTF("Failed to queue\n");
             }
             #endif
-            
+
             break_detected = false;
           }
           break;
@@ -270,43 +264,49 @@ void dmx_uart_rx_task(void *pvParameters) {
         }
 
     }*/
-
-    
   }
-
 }
 
 // ------- Print DMX Data Task -------
 void print_dmx_data(void *pvParameters) {
-  
+
   dmx_short_frame_t received_frame;
   dmx_short_frame_t previous_frame;
 
   while (true) {
 
-    if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)){
+    if (xQueueReceive(dmx_data_queue, &received_frame, portMAX_DELAY)) {
 
-      // if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t)) != 0){
+      strip.suspend(); // Block strip servicing
+      setRGBWValues(received_frame.data[0], received_frame.data[1],
+                    received_frame.data[2], received_frame.data[3]);
+      #ifdef Print_DMX
+      // if (memcmp(&previous_frame, &received_frame, sizeof(dmx_short_frame_t))
+      // != 0){
       //   previous_frame = received_frame;
-        ////////////////////////////////////////////
-        // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
-        // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
-        ////////////////////////////////////////////
-        DEBUG_PRINTF("Bytes after detection break: %u\n", bytes_in_fifo);
-        DEBUG_PRINTF("Bytes before start saving: %u\n", byte_before_start_saving);
-        DEBUG_PRINTF("Bytes before clearing: %u\n", byte_before_clearing);
-        // DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned long)break_width_us);
-        // DEBUG_PRINTF("MAB duration: %.2f us\n", mab_duration/1000.0);
-        // DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
-        // DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White: %02X\n",
-        //   received_frame.data[0], received_frame.data[1], received_frame.data[2], received_frame.data[3]);
-        // DEBUG_PRINTF("First 6 DMX bytes: ");
-        // for (int i = 0; i < 100; i++) {
-        //   DEBUG_PRINTF("%02X ", dmx_frame[i]);
-        // }
-        DEBUG_PRINTF("\n");
-        // DEBUG_PRINTF("--------------------------\n");
-      // }      
+      ////////////////////////////////////////////
+      // DEBUG_PRINTF("BREAK detected at %lu\n", break_start_time);
+      // DEBUG_PRINTF("MAB duration: %lu us\n", mab_duration);
+      ////////////////////////////////////////////
+      DEBUG_PRINTF("Bytes after detection break: %u\n", fifo_B_aft_break);
+      DEBUG_PRINTF("Bytes before start saving: %u\n", fifo_B_bef_strtr_svng);
+      DEBUG_PRINTF("Bytes before clearing: %u\n", fifo_B_bef_clr);
+      DEBUG_PRINTF("extra_break: %u\n", extra_break);
+      // DEBUG_PRINTF("Valid break detected: %lu us\n", (unsigned
+      // long)break_width_us); DEBUG_PRINTF("MAB duration: %.2f us\n",
+      // mab_duration/1000.0); DEBUG_PRINTF("Data Couter: %ld\n", data_couter);
+      // DEBUG_PRINTF(" - Red: %02X \n - Green: %02X \n - Blue: %02X \n - White:
+      // %02X\n",
+      //   received_frame.data[0], received_frame.data[1],
+      //   received_frame.data[2], received_frame.data[3]);
+      // DEBUG_PRINTF("First 6 DMX bytes: ");
+      // for (int i = 0; i < 100; i++) {
+      //   DEBUG_PRINTF("%02X ", dmx_frame[i]);
+      // }
+      DEBUG_PRINTF("\n");
+      // DEBUG_PRINTF("--------------------------\n");
+      // }
+      #endif
     }
   }
 }
@@ -319,7 +319,7 @@ void dmx_connection_check_task(void *pvParameters) {
       dmxIsConnected = false;
       strip.resume();
       DEBUG_PRINTF("*** DMX DISCONNECTED!\n");
-    } 
+    }
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
@@ -333,7 +333,9 @@ void DMX_RX_Task_Init() {
 
   dmx_gpio_init();
 
-  dmx_data_queue = xQueueCreate(dmx_data_queue_size, sizeof(uint8_t) * required_dmx_data_size); // up to 10 queued DMX messages
+  dmx_data_queue = xQueueCreate(
+      dmx_data_queue_size,
+      sizeof(uint8_t) * required_dmx_data_size); // up to 10 queued DMX messages
   if (dmx_data_queue == NULL) {
     DEBUG_PRINTF("Failed to create DMX data queue!\n");
   }
@@ -342,10 +344,10 @@ void DMX_RX_Task_Init() {
                           NULL, 0);
   xTaskCreatePinnedToCore(dmx_connection_check_task,
                           "dmx_connection_check_task", 4096, NULL, 1, NULL, 0);
-  #ifdef Print_DMX
-  xTaskCreatePinnedToCore(print_dmx_data,
-                          "print_dmx_data", 2048, NULL, 1, NULL, 0);
-  #endif
+#ifdef Print_DMX
+  xTaskCreatePinnedToCore(print_dmx_data, "print_dmx_data", 2048, NULL, 1, NULL,
+                          0);
+#endif
 }
 
 // ------- Process DMX Frame -------
