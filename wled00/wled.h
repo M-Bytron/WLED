@@ -197,7 +197,6 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 
 #ifdef MBytron_Config
 extern int LEDs_Temp;
-extern int newBrightness;
 extern bool effect_updated;
 #endif
 

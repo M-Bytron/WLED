@@ -1,6 +1,3 @@
-//
-// Created by ata on 10/28/25.
-//
 #pragma once
 
 #ifndef WLED_CONFIG_H
@@ -39,7 +36,7 @@
 //----------------------------------
 //--------- Sensor config ----------
 #define CRITIC_TEMP         25          // Minimum temperature for brightness decrease.
-#define ADC_OFFSET          0.23        // snesor ADC voltage offset 
+#define ADC_OFFSET          0.23        // sensor ADC voltage offset 
 #define BDP                 0.05        // BRIGHTNESS_DECREASE_PERCENT (Default 5%)
 #define CHECK_DELAY         1           // Check temperature every second.
 

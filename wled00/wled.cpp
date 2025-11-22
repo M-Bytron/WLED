@@ -20,7 +20,6 @@
 
 #ifdef MBytron_Config
 int LEDs_Temp;
-int newBrightness;
 bool effect_updated;
 #endif
 
@@ -64,14 +63,15 @@ void WLED::loop()
     lastCheck = nowe;
     int currentBrightness = strip.getBrightness();
     LEDs_Temp = readTemp();
-    newBrightness = calcBrightness(LEDs_Temp, currentBrightness);
-    BusManager::setBrightness(newBrightness);
-
+    bri = calcBrightness(LEDs_Temp, currentBrightness);
+    BusManager::setBrightness(bri);
+    applyFinalBri();
+    
     if (previous_temp != LEDs_Temp){
       previous_temp = LEDs_Temp;
       Serial.print("\tCURRENT BRIGHTNESS: "); Serial.println(currentBrightness);
       Serial.print("\tLEDs_Temp: "); Serial.print(LEDs_Temp); Serial.println(" °C");
-      Serial.print("\tNEW BRIGHTNESS: "); Serial.println(newBrightness);
+      Serial.print("\tNEW BRIGHTNESS: "); Serial.println(bri);
     }
 
   }

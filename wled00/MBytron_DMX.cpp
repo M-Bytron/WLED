@@ -62,8 +62,10 @@ volatile bool wait_to_start_dmx_data = false;
 // ---------- set RGBW values directly ----------
 void setRGBWValues(byte r, byte g, byte b, byte w) {
 
-  if (LEDs_Temp > CRITIC_TEMP)
-    BusManager::setBrightness(newBrightness);
+  if (LEDs_Temp > CRITIC_TEMP){
+    BusManager::setBrightness(bri);
+    applyFinalBri();
+  }
   uint32_t color = RGBW32(r, g, b, w);
   for (int i = 0; i < MAX_LEDs_Number; i++) {
     BusManager::setPixelColor(i, color);
